@@ -1,0 +1,115 @@
+version: '3.9'
+
+x-mongodb: &mongo-template 
+  image: docker.io/bitnami/mongodb:5.0
+  restart: on-failure
+  expose: 
+    - "27017"
+  env_file: ./env/.mongo.env
+
+configs:
+  db-init-v1:
+    file: ./scripts/setup.sh
+  haproxy-v1:
+    file: ./haproxy.cfg
+
+volumes: 
+  rocketchat_db1:
+    external: true
+  rocketchat_db2:
+    external: true
+  rocketchat_uploads:
+    external: true
+ 
+services:
+  rocketchat:
+    image: registry.rocket.chat/rocketchat/rocket.chat:latest
+    hostname: rocketchat
+    deploy:
+      mode: replicated
+      replicas: 4
+      placement:
+        max_replicas_per_node: 2
+    env_file: ./env/.rocket.env
+    command: >
+      bash -c
+      "for i in `seq 1 30`; do
+        node main.js &&
+        s=$$? && break || s=$$?;
+        echo \"Tried $$i times. Waiting 3 secs...\";
+        sleep 3;
+      done; (exit $$s)"
+    restart: on-failure
+    environment:
+      PORT: 80
+    depends_on:
+      - mongo1
+    expose:
+      - "80"
+      - "9458"
+
+  mongo1:
+    <<: *mongo-template
+    hostname: mongo1
+    volumes:
+      - rocketchat_db1:/bitnami/mongodb
+    environment:
+      MONGODB_REPLICA_SET_MODE: primary
+      MONGODB_ADVERTISED_HOSTNAME: mongo1
+    deploy:
+      placement:
+        constraints:
+          - "node.labels.zone==1"
+
+  mongo2:
+    <<: *mongo-template
+    hostname: mongo2
+    volumes:
+      - rocketchat_db2:/bitnami/mongodb
+    environment:
+      MONGODB_REPLICA_SET_MODE: secondary
+      MONGODB_ADVERTISED_HOSTNAME: mongo2
+    deploy:
+      placement:
+        constraints:
+          - "node.labels.zone==2"
+
+  minio:
+    image: minio/minio
+    hostname: minio1
+    volumes:
+      - rocketchat_uploads:/data
+    command: server --console-address ":8082" --address ":8081" /data
+    env_file: ./env/.minio.env
+    restart: unless-stopped 
+    deploy:
+      placement:
+        constraints:
+          - "node.labels.zone==1"
+
+  haproxy:
+    image: haproxy:latest
+    container_name: haproxy
+    hostname: haproxy
+    restart: always
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+      - target: 8080
+        published: 8080
+        mode: host
+      - target: 8081
+        published: 8081
+        mode: host
+      - target: 8082
+        published: 8082
+        mode: host
+    configs:
+      - source: haproxy-v1
+        target: /usr/local/etc/haproxy/haproxy.cfg
+    deploy:
+      placement:
+        constraints:
+          - "node.labels.zone==1"
+

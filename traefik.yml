@@ -1,0 +1,73 @@
+api:
+  dashboard: true
+  insecure: true
+log:
+  level: INFO
+  filePath: "/var/log/default.log"
+  format: common
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+  metrics:
+    address: ":9458"
+  rc-metrics: 
+    address: ":9460"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+  file:
+    directory: /
+    watch: true
+
+http:
+  middlewares:
+    compression-middleware:
+      compress: {}
+  routers:
+    elastic-apm:
+      entryPoints:
+        - web
+      rule: "Path(`/intake/v2/rum/events`) && Method(`Post`)"
+      service: "elastic-apm-service"
+    rocketchat:
+      entryPoints:
+        - web
+      #rule: "Host(`chatbot.emofid.com`)"
+      service: "rocketchat-service"
+    #rocketchat-internal:
+    #  rule: "(Host(`faichat1`) || Host(`172.23.159.1`)) && (ClientIP(`172.16.0.0/12`, `::1`) || ClientIP(`10.0.0.0/8`, `::1`) || ClientIP(`192.168.0.0/16`, `::1`))"
+    #  service: "rocketchat-service"
+    rocketchat-metrics:
+      entryPoints:
+        - "rc-metrics"
+      rule: "Path(`/metrics`)"
+      service: "rocketchat-metrics-service"
+  services:
+    rocketchat-service:
+      loadBalancer:
+        servers:
+          - url: "http://rocketchat"
+    rocketchat-metrics-service:
+      loadBalancer:
+        servers:
+          - url: "http://rocketchat:9458"
+    elastic-apm-service:
+      loadBalancer:
+        servers:
+          - url: "http://ai-monitoring.emofid.com:9204"
+
+metrics:
+  prometheus:
+    buckets:
+      - 0.1
+      - 0.3
+      - 1.2
+      - 5.0
+    addEntryPointsLabels: true
+    addrouterslabels: true
+    addServicesLabels: true
+    entryPoint: metrics
