@@ -26,6 +26,10 @@ Then use the tokens from previous above in the following command to join into cl
 ```
 docker swarm join --token <token>
 ```
+or
+```
+sh ./rc-deploy
+```
 
 ## Deployment Instructions
 
