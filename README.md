@@ -1,5 +1,7 @@
 # Rocketchat Swarm Deployment
 
+This is the [Rocketchat](https://rocket.chat/) deployment on Docker Swarm cluster.
+[Rocketchat Github](https://github.com/RocketChat/Rocket.Chat)
 ## Swarm Initialization
 
 To start rocketchat stack on Docker Swarm cluster make sure docker binaries are installed. to intall docker on linux/windows/macos see [Docker Installation](https://docs.docker.com/engine/install)
