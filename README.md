@@ -26,10 +26,6 @@ Then use the tokens from previous above in the following command to join into cl
 ```
 docker swarm join --token <token>
 ```
-or
-```
-sh ./rc-deploy
-```
 
 ## Deployment Instructions
 
@@ -42,4 +38,8 @@ sh ./rc-deploy
 4. to start up the server run:
    ```
    docker stack deploy -c docker-compose.yml rocketchat
+   ```
+   or
+   ```
+   sh ./rc-deploy
    ```
